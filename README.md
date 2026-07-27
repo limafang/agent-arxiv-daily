@@ -1,4 +1,4 @@
-## Updated on 2026.07.20
+## Updated on 2026.07.27
 > Usage instructions: [here](./docs/README.md#usage)
 
 <details>
@@ -1113,7 +1113,7 @@
 |**2024-03-31**|**Algorithmic Collusion by Large Language Models**|Sara Fish et.al.|[2404.00806](http://arxiv.org/abs/2404.00806)|null|随着算法定价的兴起，人们担忧算法间的合谋问题。我们通过实验使用基于大型语言模型（LLMs）的定价代理，特别是GPT-4，进行了探究。研究发现：(1) LLM驱动的定价机制在定价任务上表现出色；(2) 在寡头竞争环境中，LLM定价代理会自发地进行合谋，从而损害消费者利益；(3) 对LLM指令（“提示”）看似微小的变化可能加剧这种合作行为。这些结果同样适用于拍卖场景。我们的研究结果强调了对算法定价进行反垄断监管的必要性，并揭示了针对LLM定价代理特有的监管挑战。|
 |**2024-03-31**|**"My agent understands me better": Integrating Dynamic Human-like Memory Recall and Consolidation in LLM-Based Agents**|Yuki Hou et.al.|[2404.00573](http://arxiv.org/abs/2404.00573)|**[link](https://github.com/tamoharu/Agent-Memory-CHI24)**|在这个研究中，我们提出了一种创新的人类记忆架构，旨在提升基于大型语言模型的对话代理的认知能力。我们的设计使得这些代理能自主检索生成响应所需的必要记忆，从而解决LLMs在时间认知上的局限。我们借鉴了人类的记忆线索召回机制作为触发点，以实现精确且高效的回忆。此外，我们开发了一个数学模型，动态量化记忆巩固过程，考虑了诸如上下文相关性、时间流逝和回忆频率等因素。代理会从用户的交互历史中存储记忆，这些记忆被封装在数据库中，每个记忆都包含了内容和时间关联的语境。这样，通过类似人类识别和回忆过往经历的方式，系统能够战略性地存储记忆，并理解它们对用户在时间线上的重要性。|
 
-<p align=right>(<a href=#updated-on-20260720>back to top</a>)</p>
+<p align=right>(<a href=#updated-on-20260727>back to top</a>)</p>
 
 ## llm
 
@@ -3930,5 +3930,5 @@
 |**2024-05-16**|**IntelliExplain: Enhancing Interactive Code Generation through Natural Language Explanations for Non-Professional Programmers**|Hao Yan et.al.|[2405.10250](http://arxiv.org/abs/2405.10250)|null|大型语言模型（LLMs）在根据自然语言描述自动生成可执行代码方面展现出巨大潜力，特别是通过互动功能，用户可以通过迭代反馈指导模型。然而，当前的互动方式往往假设用户具备调试源代码的专业知识，对非专业程序员不太友好。这使得使互动代码生成对不同编程水平的个体更易于使用成为一个挑战。为解决这个问题，我们提出了IntelliExplain，这是一种创新的人机交互范式，通过让用户通过自然语言解释与源代码互动，提升非专业人士的体验。用户通过提供他们发现错误的自然语言纠正反馈，来指导系统修订代码，直到用户对系统的代码解释感到满意。我们的用户研究显示，使用IntelliExplain的用户在Text-to-SQL和Python代码生成任务中的成功率分别比纯GPT-3.5提高了11.6%和25.3%，同时所需时间分别减少了39.0%和15.6%。|
 |**2024-05-16**|**CPsyExam: A Chinese Benchmark for Evaluating Psychology using Examinations**|Jiahao Zhao et.al.|[2405.10212](http://arxiv.org/abs/2405.10212)|**[link](https://github.com/CAS-SIAT-XinHai/CPsyExam)**|在这篇论文中，我们提出了一种创新的心理学基准测试——CPsyExam，它源于中国语言考试的问题。CPsyExam旨在分别强调心理学知识和案例分析的重要性，认识到将心理学知识应用于实际情境的价值。从22,000个问题库中，我们精选了4,000个来构建该基准，确保了主题的均衡覆盖，并包含了各种案例分析方法的多样性。此外，我们对一系列现有的大型语言模型（LLMs）进行了评估，包括开源和API基础的模型。实验和分析结果显示，CPsyExam是一个有效的确立语言模型对心理学理解能力的基准，同时支持在不同粒度上比较这些模型。|
 
-<p align=right>(<a href=#updated-on-20260720>back to top</a>)</p>
+<p align=right>(<a href=#updated-on-20260727>back to top</a>)</p>
 
