@@ -19,6 +19,7 @@ logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s',
 base_url = "https://arxiv.paperswithcode.com/api/v0/papers/"
 github_url = "https://api.github.com/search/repositories"
 arxiv_url = "http://arxiv.org/"
+request_timeout = (10, 30)
 
 
 def load_config(config_file: str) -> dict:
@@ -103,26 +104,48 @@ prompt_formate = """
 
 
 def llm_generate_summary(prompt):
-
     msg = prompt_formate.format(context=prompt)
     from http import HTTPStatus
 
-    response = dashscope.Generation.call(
-        model=dashscope.Generation.Models.qwen_turbo,
-        prompt=msg
-    )
-    # 如果调用成功，则打印模型的输出
-    if response.status_code == HTTPStatus.OK:
-        logging.info(response.output.text)
-        rsp = response.output.text
-    # 如果调用失败，则打印出错误码与失败信息
-    else:
-        logging.error("can not generate response, use old message")
-        logging.error(response.code)
-        logging.error(response.message)
-        rsp = prompt
+    if not dashscope.api_key:
+        logging.warning("DASHSCOPE_API_KEY is not set; keeping the original abstract")
+        return prompt
 
-    return rsp
+    try:
+        response = dashscope.Generation.call(model="qwen-turbo", prompt=msg)
+    except Exception:
+        logging.exception("DashScope request failed; keeping the original abstract")
+        return prompt
+
+    output = getattr(response, "output", None)
+    text = getattr(output, "text", None)
+    if (getattr(response, "status_code", None) == HTTPStatus.OK
+            and isinstance(text, str) and text.strip()):
+        return text
+
+    logging.warning(
+        "DashScope returned %s (%s); keeping the original abstract",
+        getattr(response, "code", "unknown error"),
+        getattr(response, "message", "no message"),
+    )
+    return prompt
+
+
+def get_official_code_url(paper_id):
+    try:
+        response = requests.get(base_url + paper_id, timeout=request_timeout)
+        response.raise_for_status()
+        result = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logging.warning("Could not look up code for %s: %s", paper_id, exc)
+        return None
+
+    if not isinstance(result, dict):
+        logging.warning("Code lookup for %s returned an unexpected response", paper_id)
+        return None
+
+    official = result.get("official")
+    return official.get("url") if isinstance(official, dict) else None
 
 
 def get_daily_papers(topic, query="agent", max_results=2):
@@ -143,22 +166,24 @@ def get_daily_papers(topic, query="agent", max_results=2):
         sort_by=arxiv.SortCriterion.SubmittedDate
     )
 
-    for result in search_engine.results():
+    client = arxiv.Client(
+        page_size=min(max_results, 100),
+        delay_seconds=3,
+        num_retries=3,
+    )
+
+    for result in client.results(search_engine):
 
         paper_id = result.get_short_id()
         paper_title = result.title
         paper_url = result.entry_id
-        code_url = base_url + paper_id  # TODO
 
         paper_abstract = result.summary.replace("\n", " ")
         paper_abstract = llm_generate_summary(paper_abstract)
         paper_abstract = paper_abstract.replace("|", ",")
         paper_abstract = paper_abstract.replace("\n", " ")
 
-        paper_authors = get_authors(result.authors)
         paper_first_author = get_authors(result.authors, first_author=True)
-        primary_category = result.primary_category
-        publish_time = result.published.date()
         update_time = result.updated.date()
         comments = result.comment
 
@@ -173,34 +198,24 @@ def get_daily_papers(topic, query="agent", max_results=2):
             paper_key = paper_id[0:ver_pos]
         paper_url = arxiv_url + 'abs/' + paper_key
 
-        try:
-            # source code link
-            r = requests.get(code_url).json()
-            repo_url = None
-            if "official" in r and r["official"]:
-                repo_url = r["official"]["url"]
+        repo_url = get_official_code_url(paper_id)
+        if repo_url is not None:
+            content[paper_key] = "|**{}**|**{}**|{} et.al.|[{}]({})|**[link]({})**|**{}**|\n".format(
+                update_time, paper_title, paper_first_author, paper_key, paper_url, repo_url, paper_abstract)
+            content_to_web[paper_key] = "- {}, **{}**, {} et.al., Paper: [{}]({}), Code: **[{}]({})**".format(
+                update_time, paper_title, paper_first_author, paper_url, paper_url, repo_url, repo_url)
+        else:
+            content[paper_key] = "|**{}**|**{}**|{} et.al.|[{}]({})|null|{}|\n".format(
+                update_time, paper_title, paper_first_author, paper_key, paper_url, paper_abstract)
+            content_to_web[paper_key] = "- {}, **{}**, {} et.al., Paper: [{}]({}),{}".format(
+                update_time, paper_title, paper_first_author, paper_url, paper_url, paper_abstract)
 
-            if repo_url is not None:
-                content[paper_key] = "|**{}**|**{}**|{} et.al.|[{}]({})|**[link]({})**|**{}**|\n".format(
-                    update_time, paper_title, paper_first_author, paper_key, paper_url, repo_url, paper_abstract)
-                content_to_web[paper_key] = "- {}, **{}**, {} et.al., Paper: [{}]({}), Code: **[{}]({})**".format(
-                    update_time, paper_title, paper_first_author, paper_url, paper_url, repo_url, repo_url)
-
-            else:
-                content[paper_key] = "|**{}**|**{}**|{} et.al.|[{}]({})|null|{}|\n".format(
-                    update_time, paper_title, paper_first_author, paper_key, paper_url, paper_abstract)
-                content_to_web[paper_key] = "- {}, **{}**, {} et.al., Paper: [{}]({}),{}".format(
-                    update_time, paper_title, paper_first_author, paper_url, paper_url, paper_abstract)
-
-            # TODO: select useful comments
-            comments = None
-            if comments != None:
-                content_to_web[paper_key] += f", {comments}\n"
-            else:
-                content_to_web[paper_key] += f"\n"
-
-        except Exception as e:
-            logging.error(f"exception: {e} with id: {paper_key}")
+        # TODO: select useful comments
+        comments = None
+        if comments is not None:
+            content_to_web[paper_key] += f", {comments}\n"
+        else:
+            content_to_web[paper_key] += "\n"
 
     data = {topic: content}
     data_web = {topic: content_to_web}
@@ -250,7 +265,9 @@ def update_paper_links(filename):
                     continue
                 try:
                     code_url = base_url + paper_id  # TODO
-                    r = requests.get(code_url).json()
+                    response = requests.get(code_url, timeout=request_timeout)
+                    response.raise_for_status()
+                    r = response.json()
                     repo_url = None
                     if "official" in r and r["official"]:
                         repo_url = r["official"]["url"]
@@ -456,5 +473,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = load_config(args.config_path)
     config = {**config, 'update_paper_links': args.update_paper_links}
-    print(f"apikey is {dashscope.api_key}")
     demo(**config)

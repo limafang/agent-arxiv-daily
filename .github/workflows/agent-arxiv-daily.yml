@@ -1,62 +1,56 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Run Arxiv Papers Daily
 
-# Controls when the workflow will run
 on:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   schedule:
-    - cron:  "0 0/12 * * *"  #'*/60 * * * *'
-  # Triggers the workflow on push or pull request events but only for the main branch
-#   push:
-#     branches:
-#     - main
+    - cron: "0 0/12 * * *"
 
 env:
-
   GITHUB_USER_NAME: limafang
   GITHUB_USER_EMAIL: azula_fire@163.com
-  
-  
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-arxiv-updates
+  cancel-in-progress: false
+
 jobs:
-  # This workflow contains a single job called "build"
   build:
     name: update
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    
-    # Steps represent a sequence of tasks that will be executed as part of the job
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-        
+        uses: actions/checkout@v5
+
       - name: Set up Python Env
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
-          #architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+          python-version: "3.11"
+          cache: pip
+
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install arxiv
-          pip install requests
-          pip install pyyaml
-          pip install dashscope
-          
-      - name: Run daily arxiv 
-        run: |
-          python daily_arxiv.py
+        run: python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Run daily arxiv
+        run: python daily_arxiv.py
         env:
           DASHSCOPE_API_KEY: ${{ secrets.QWEN_API_KEY }}
 
-      - name: Push new agent-arxiv-daily.md
-        uses: github-actions-x/commit@v2.9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Github Action Automatic Update agent Arxiv Papers"
-          files: README.md docs/agent-arxiv-daily.json 
-          rebase: 'true'
-          name: ${{ env.GITHUB_USER_NAME }}
-          email: ${{ env.GITHUB_USER_EMAIL }}
+      - name: Commit and push updates
+        run: |
+          if git diff --quiet -- README.md docs/agent-arxiv-daily.json; then
+            echo "No paper updates to commit"
+            exit 0
+          fi
+          git config user.name "$GITHUB_USER_NAME"
+          git config user.email "$GITHUB_USER_EMAIL"
+          git add README.md docs/agent-arxiv-daily.json
+          git commit -m "Github Action Automatic Update agent Arxiv Papers"
+          git pull --rebase origin main
+          git push origin HEAD:main
